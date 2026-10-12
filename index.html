@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Customer Record App</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#f1f5f9;margin:0;color:#172033}
+header{background:#123b70;color:white;padding:22px 16px}
+header h2{margin:0 0 6px}
+main{max-width:850px;margin:18px auto;padding:12px}
+.card{background:white;padding:18px;border-radius:12px;margin-bottom:16px;box-shadow:0 2px 8px #0001}
+input,select,button{width:100%;padding:12px;margin:6px 0;border:1px solid #cbd5e1;border-radius:7px;font-size:16px}
+button{background:#1558a6;color:white;border:0;font-weight:bold;cursor:pointer}
+.secondary{background:#475569}
+.delete{background:#b91c1c}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.record{border:1px solid #dbe3ed;border-radius:9px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
+small{color:#475569}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+<h2>Customer Record App</h2>
+<div>ग्राहक और आवेदन रिकॉर्ड मैनेजमेंट</div>
+</header>
+<main>
+<section class="card">
+<h3 id="formTitle">नया ग्राहक जोड़ें</h3>
+<form id="customerForm">
+<input id="name" placeholder="ग्राहक का पूरा नाम" required>
+<div class="grid">
+<input id="mobile" type="tel" inputmode="numeric" maxlength="10" placeholder="10 अंकों का मोबाइल नंबर" required>
+<input id="dob" type="date" aria-label="जन्म तारीख">
+</div>
+<input id="appno" placeholder="Application Number" required>
+<select id="category" required>
+<option value="">कैटेगरी चुनें</option>
+<option>Learning Licence</option>
+<option>Driving Licence</option>
+<option>Licence Renewal</option>
+<option>RC</option>
+<option>Other</option>
+</select>
+<div class="grid">
+<select id="status">
+<option>Pending</option>
+<option>In Progress</option>
+<option>Approved</option>
+<option>Rejected</option>
+<option>Completed</option>
+</select>
+<select id="payment">
+<option>Unpaid</option>
+<option>Paid</option>
+<option>Partial</option>
+<option>Refunded</option>
+</select>
+</div>
+<input id="amount" type="number" min="0" step="0.01" placeholder="राशि ₹">
+<button type="submit">रिकॉर्ड सेव करें</button>
+<button type="button" class="secondary" id="cancel" hidden>एडिट रद्द करें</button>
+</form>
+</section>
+
+<section class="card">
+<h3>ग्राहक रिकॉर्ड</h3>
+<input id="search" placeholder="नाम, मोबाइल या आवेदन नंबर से खोजें">
+<div id="records"></div>
+</section>
+<p><small>यह शुरुआती संस्करण रिकॉर्ड इसी ब्राउज़र में सेव करता है। अभी ऑनलाइन डेटाबेस या लॉगिन जुड़ा नहीं है।</small></p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const fields=["name","mobile","dob","appno","category","status","payment","amount"];
+let data=[];
+let editing=null;
+try{data=JSON.parse(localStorage.getItem("customerRecords315")||"[]");if(!Array.isArray(data))data=[]}catch(e){data=[]}
+function save(){localStorage.setItem("customerRecords315",JSON.stringify(data));render()}
+function reset(){ $("customerForm").reset();editing=null;$("formTitle").textContent="नया ग्राहक जोड़ें";$("cancel").hidden=true}
+$("customerForm").addEventListener("submit",e=>{
+e.preventDefault();
+const mobile=$("mobile").value.trim();
+if(!/^[6-9]\d{9}$/.test(mobile)){alert("सही 10 अंकों का भारतीय मोबाइल नंबर डालें।");return}
+const item={};
+fields.forEach(f=>item[f]=$(f).value.trim());
+item.id=editing||String(Date.now());
+if(editing){data=data.map(x=>x.id===editing?item:x)}
+else{data.unshift(item)}
+save();reset();
+});
+$("cancel").onclick=reset;
+$("search").addEventListener("input",render);
+function render(){
+const q=$("search").value.toLowerCase();
+const list=data.filter(x=>[x.name,x.mobile,x.appno,x.category].some(v=>(v||"").toLowerCase().includes(q)));
+$("records").innerHTML="";
+if(!list.length){$("records").textContent="कोई रिकॉर्ड नहीं मिला।";return}
+list.forEach(x=>{
+const el=document.createElement("div");el.className="record";
+const title=document.createElement("strong");title.textContent=x.name;el.append(title);
+const detail=document.createElement("p");
+detail.textContent=`मोबाइल: ${x.mobile} | आवेदन: ${x.appno} | जन्म तारीख: ${x.dob||"—"} | कैटेगरी: ${x.category} | स्टेटस: ${x.status} | पेमेंट: ${x.payment} | राशि: ₹${x.amount||"0"}`;
+el.append(detail);
+const edit=document.createElement("button");edit.textContent="Edit";edit.onclick=()=>{
+editing=x.id;fields.forEach(f=>$(f).value=x[f]||"");
+$("formTitle").textContent="ग्राहक रिकॉर्ड एडिट करें";$("cancel").hidden=false;window.scrollTo(0,0)
+};el.append(edit);
+const sms=document.createElement("button");sms.textContent="SMS भेजें";sms.className="secondary";
+sms.onclick=()=>{
+const msg=`Namaste ${x.name}, aapke ${x.category} application ${x.appno} ka status: ${x.status}. Payment: ${x.payment}.`;
+location.href=`sms:${x.mobile}?body=${encodeURIComponent(msg)}`;
+};el.append(sms);
+const del=document.createElement("button");del.textContent="Delete";del.className="delete";del.onclick=()=>{
+if(confirm("क्या यह रिकॉर्ड डिलीट करना है?")){data=data.filter(y=>y.id!==x.id);save()}
+};el.append(del);$("records").append(el)
+})
+}
+render();
+</script>
+</body>
+</html>
+
